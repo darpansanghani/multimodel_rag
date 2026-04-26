@@ -24,7 +24,7 @@ This project is a powerful, locally-hosted **Multimodal Retrieval-Augmented Gene
 
 ```mermaid
 graph TD
-    A[User Query: "give me info about figure 2"] --> B{Query Router}
+    A[User Query: 'give me info about figure 2'] --> B{Query Router}
     
     B -->|Chat Intent| C[Conversational System Prompt]
     C --> D[Standard LLM Response]
