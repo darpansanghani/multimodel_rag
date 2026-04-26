@@ -119,6 +119,6 @@ The terminal should output a local network IP block. Open your web browser to:
 ---
 
 ## 🔮 Future Roadmap
-- [ ] Implement an LLM-based query intent classifier instead of rule-based heuristics.
-- [ ] Integrate local, offline multimodal inference models (e.g., LLaVA) via Ollama.
-- [ ] Implement hybrid search (BM25 + Vector) directly natively within the Qdrant retriever.
+- Implement an LLM-based query intent classifier instead of rule-based heuristics.
+- Integrate local, offline multimodal inference models (e.g., LLaVA) via Ollama.
+- Implement hybrid search (BM25 + Vector) directly natively within the Qdrant retriever.
