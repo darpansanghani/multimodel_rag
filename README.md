@@ -1,16 +1,17 @@
-# Multimodal RAG Engine with Intelligent Query Routing
+# Self-Reflective Multimodal RAG Agent
 
 ![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
 ![LlamaIndex](https://img.shields.io/badge/LlamaIndex-0.10+-lightgrey.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-red.svg)
 
-This project is a powerful, locally-hosted **Multimodal Retrieval-Augmented Generation (RAG) web application**. It is designed to ingest complex file types (especially multi-column PDFs with embedded charts/diagrams, and independent images) and perform intelligent search and visual understanding. It achieves this by coupling local embedding models with high-performance cloud LLMs (like NVIDIA NIM and OpenAI endpoints).
+This project is a powerful, locally-hosted **Multimodal Retrieval-Augmented Generation (RAG) with Self Reflection web application**. It is designed to ingest complex file types (especially multi-column PDFs with embedded charts/diagrams, and independent images) and perform intelligent search and visual understanding. It achieves this by coupling local embedding models with high-performance cloud LLMs (like NVIDIA NIM and OpenAI endpoints).
 
 ---
 
 ## 🚀 Key Features
 
+*   **Self-Reflective RAG Agent:** Implements an autonomous evaluation loop. Before answering, the agent grades the retrieved context using a fast LLM (e.g. Llama 3.1 8B). If the context is inadequate, it rewrites the query and retries retrieval, preventing hallucinations and drastically improving accuracy.
 *   **Intelligent Query Routing:** A classifier categorizes queries as conversational (`chat`) or document-grounded (`rag`). This bypasses expensive vector DB lookups for casual greetings and dynamically falls back to conversation if RAG yields no context.
 *   **Advanced Document Parsing (`Docling`):** Employs custom PDF parsing to extract intricate tables and diagrams that standard text parsers completely miss.
 *   **AI Image Captioning:** Extracted images are passed through a Vision LLM for automated captioning. Both the CLIP image embedding and HuggingFace text embedding of the caption are indexed, ensuring total searchability.
@@ -24,22 +25,22 @@ This project is a powerful, locally-hosted **Multimodal Retrieval-Augmented Gene
 
 ```mermaid
 graph TD
-    A[User Query: 'give me info about figure 2'] --> B{Query Router}
+    A[User Query] --> B{Query Router}
     
     B -->|Chat Intent| C[Conversational System Prompt]
     C --> D[Standard LLM Response]
     
-    B -->|RAG Intent| E[Qdrant Vector Retriever]
-    E -->|Retrieves| F[Top-10 Text Nodes]
-    E -->|Retrieves| G[Top-6 Image Nodes]
+    B -->|RAG Intent| E[Reflective RAG Agent]
+    E --> F[Qdrant Vector Retriever]
     
-    F --> H[NVIDIA Reranker cross-encoder]
-    H -->|Scores text, keeps Top-3| I[Page-Aware Co-retrieval]
+    F -->|Top Text & Images| G[NVIDIA Reranker Cross-Encoder]
+    G --> H[Page-Aware Image Co-retrieval & Deduplication]
     
-    G -.->|Held aside| I
-    I -->|Matches top text pages with image pages| J[Filter Deduplicate Images MD5]
+    H --> I{LLM Context Grader}
+    I -->|Score < Threshold| J[Rewrite Query & Retry]
+    J --> F
     
-    J --> K[Multimodal Context Construction]
+    I -->|Score >= Threshold| K[Multimodal Context Construction]
     K --> L[NVIDIA Cloud LLM / Local API LLM]
     L --> M[QueryResult: Answer + Relevant Images]
 ```

@@ -21,9 +21,10 @@ OPENAI_MODEL = "gpt-5.2"
 LLM = "NVIDIA"
 
 # NVIDIA models
-NVIDIA_API_KEY = "NVIDIA_API_KEY"
+NVIDIA_API_KEY = "[ENCRYPTION_KEY]"
 NVIDIA_RERANK_MODEL = "nv-rerank-qa-mistral-4b:1"
-NVIDIA_LLM_MODEL = "google/gemma-3-27b-it" # Switching to a more stable model
+NVIDIA_LLM_MODEL = "meta/llama-3.1-8b-instruct" # Switching to a stable model
+NVIDIA_REFLECTION_MODEL = "meta/llama-3.1-8b-instruct"
 
 
 # How many nodes to fetch before reranking — cast a wide net first

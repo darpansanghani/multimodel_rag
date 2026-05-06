@@ -23,10 +23,15 @@ from llama_index.multi_modal_llms.openai import OpenAIMultiModal
 from llama_index.core.prompts import PromptTemplate
 from llama_index.core.prompts.prompt_type import PromptType
 from llama_index.core import QueryBundle
+from llama_index.core.llms import ImageBlock
+from llama_index.core.schema import NodeRelationship, RelatedNodeInfo
+from llama_index.core.schema import NodeWithScore
+from llama_index.core.llms import ImageBlock
 
-
-import config
-from pdf_parser import DoclingPDFParser
+import hashlib
+from PIL import Image as PilImage
+import config.config as config
+from src.core.pdf_parser import DoclingPDFParser
 
 # Image extensions recognised during ingestion
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".tif"}
@@ -291,7 +296,6 @@ class MultiModalEngine:
         Returns None if captioning fails (the image will still be indexed
         via CLIP embeddings, just without a searchable text caption).
         """
-        from llama_index.core.llms import ImageBlock
 
         try:
             b64_str, mime_type = self._encode_image(image_path)
@@ -339,7 +343,6 @@ class MultiModalEngine:
         Each TextNode is linked to its ImageNode via NodeRelationship.SOURCE
         so that retrieval of the caption also surfaces the image.
         """
-        from llama_index.core.schema import NodeRelationship, RelatedNodeInfo
 
         caption_text_nodes: List[TextNode] = []
 
@@ -429,7 +432,6 @@ class MultiModalEngine:
                 if cap_path and Path(cap_path).exists():
                     caption_to_score[cap_path] = max(caption_to_score.get(cap_path, 0.0), score)
 
-        from llama_index.core.schema import NodeWithScore
         
         coretreived_images = []
         for n in image_nodes:
@@ -461,8 +463,7 @@ class MultiModalEngine:
 
         # ── Deduplicate by image file content ──
         # Same logo embedded across 10 pages = 1 result, not 10
-        import hashlib
-        from PIL import Image as PilImage
+
         seen_hashes = set()
         deduplicated = []
         for n in all_images:
@@ -563,7 +564,6 @@ class MultiModalEngine:
         else:
             # Build ImageBlock list — the correct type for OpenAIMultiModal.complete().
             if valid_image_nodes:
-                from llama_index.core.llms import ImageBlock
     
                 image_documents = []
                 for n in valid_image_nodes:
@@ -639,8 +639,6 @@ class MultiModalEngine:
         then returns a (base64_string, mime_type) tuple.
         Resizing happens in memory — the file on disk is never touched.
         """
-        from PIL import Image as PilImage
-        import io
 
         suffix = Path(image_path).suffix.lower()
         mime_map = {

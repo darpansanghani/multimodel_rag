@@ -7,8 +7,8 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import DATA_DIR
-from rag_engine import engine, RelevantImage
+from config.config import DATA_DIR
+from src.core.rag_engine import engine, RelevantImage
 
 class ImagePayload(BaseModel):
     source_file: str
@@ -77,7 +77,7 @@ async def upload_and_ingest(files: List[UploadFile] = File(...)):
         "files_indexed": saved_files
     }
 
-from query_router import query_router
+from src.routing.query_router import query_router
 
 @app.post("/chat", response_model=ChatResponse)
 def chat_with_bot(query: str, temperature: float = 0.7, max_new_tokens: int = 500):

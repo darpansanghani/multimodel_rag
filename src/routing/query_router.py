@@ -1,7 +1,7 @@
 import re
 from typing import Literal
-import config
-from rag_engine import engine, QueryResult
+from config import config
+from src.core.rag_engine import engine, QueryResult
 
 CONVERSATIONAL_PROMPT = """
 You are a helpful, friendly, and intelligent AI assistant.
@@ -19,7 +19,7 @@ class QueryRouter:
         # Instead of modifying the global template, we dynamically pass it or assume it's set
         # Since we can't easily change the template dynamically without refactoring `generate_rag_response`
         # we will patch the template string at runtime or let it use the global one but updated.
-        import rag_engine
+        from src.core import rag_engine
         rag_engine.TEXT_QA_TEMPLATE.template = (
             f"{config.SYSTEM_PROMPT}"
             "\n\n"
@@ -89,10 +89,13 @@ class QueryRouter:
         """Handles document-grounded queries using the existing RAG pipeline."""
         print(f"[router] Routing to RAG: '{query}'")
         
-        final_text_nodes, final_image_nodes = engine.retrieve_documents(query)
+        from src.core.reflective_agent import ReflectiveRAGAgent
+        agent = ReflectiveRAGAgent(engine)
+        
+        result = agent.query(query, temperature=temperature, max_tokens=max_new_tokens)
         
         # Handle Empty Retrieval Case
-        if not final_text_nodes and not final_image_nodes:
+        if "couldn't find relevant information" in result.answer:
             print("[router] RAG retrieval returned empty context.")
             if self.fallback_to_chat_on_empty:
                 print("[router] Falling back to CHAT mode.")
@@ -103,7 +106,7 @@ class QueryRouter:
                     images=[]
                 )
         
-        return engine.generate_rag_response(query, final_text_nodes, final_image_nodes, temperature, max_new_tokens)
+        return result
 
 # Create a global instance
 query_router = QueryRouter()
