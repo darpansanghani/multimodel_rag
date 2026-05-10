@@ -225,6 +225,12 @@ def render_message(message: dict):
 with st.sidebar:
     st.header("🧭 Navigation")
     page = st.radio("Go to", ["💬 Chat Assistant", "📊 Eval Dashboard"], label_visibility="collapsed")
+    
+    with st.sidebar.expander("Observability"):
+        st.markdown("**Phoenix Tracing UI**")
+        st.markdown("[Open Phoenix →](http://localhost:6006)")
+        st.caption("Traces every LLM call, retrieval step, and rerank.")
+        
     st.divider()
 
     st.header("⚙️ Inference Settings")

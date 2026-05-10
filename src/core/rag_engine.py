@@ -399,15 +399,17 @@ class MultiModalEngine:
         # ── Rerank text nodes ──────────────────────────────────────────────
         reranked_text_nodes = text_nodes
         try:
-            reranker = NVIDIARerank(
-                model=config.NVIDIA_RERANK_MODEL,
-                api_key=config.NVIDIA_API_KEY,
-                top_n=config.RERANKER_TOP_N,
-            )
-            reranked_text_nodes = reranker.postprocess_nodes(
-                text_nodes,
-                query_bundle=QueryBundle(query_str=query),
-            )
+            from observability.tracer import span
+            with span("nvidia_reranker", {"num_nodes_in": len(text_nodes)}):
+                reranker = NVIDIARerank(
+                    model=config.NVIDIA_RERANK_MODEL,
+                    api_key=config.NVIDIA_API_KEY,
+                    top_n=config.RERANKER_TOP_N,
+                )
+                reranked_text_nodes = reranker.postprocess_nodes(
+                    text_nodes,
+                    query_bundle=QueryBundle(query_str=query),
+                )
             print(f"[reranker] Reranked to top {len(reranked_text_nodes)} text nodes.")
         except Exception as exc:
             print(f"[reranker] Failed, falling back to original ranking. Detail: {exc}")
@@ -536,58 +538,60 @@ class MultiModalEngine:
             else:
                 print(f"[query] Skipping missing image: {img_path}")
 
-        if getattr(config, "LLM", None) == "NVIDIA":
-            content_args = [{"type": "text", "text": filled_prompt}]
-            for n in valid_image_nodes:
-                img_path = n.node.metadata.get("image_path")
-                try:
-                    b64_str, mime_type = self._encode_image(img_path)
-                    content_args.append({
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{mime_type};base64,{b64_str}"
-                        }
-                    })
-                except Exception as exc:
-                    print(f"[query] Could not encode image for LLM: {img_path} — {exc}")
-
-            response = self.nvidia_client.chat.completions.create(
-                model=config.NVIDIA_LLM_MODEL,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": content_args
-                    }
-                ],
-                temperature=temperature,
-                max_tokens=max_new_tokens,
-            )
-            llm_response = response.choices[0].message.content
-        else:
-            # Build ImageBlock list — the correct type for OpenAIMultiModal.complete().
-            if valid_image_nodes:
-    
-                image_documents = []
+        from observability.tracer import span
+        with span("answer_generation", {"model": "google/gemma-3-27b-it"}):
+            if getattr(config, "LLM", None) == "NVIDIA":
+                content_args = [{"type": "text", "text": filled_prompt}]
                 for n in valid_image_nodes:
                     img_path = n.node.metadata.get("image_path")
                     try:
                         b64_str, mime_type = self._encode_image(img_path)
-                        data_uri = f"data:{mime_type};base64,{b64_str}"
-                        image_documents.append(
-                            ImageBlock(url=data_uri, image_mimetype=mime_type)
-                        )
+                        content_args.append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime_type};base64,{b64_str}"
+                            }
+                        })
                     except Exception as exc:
                         print(f"[query] Could not encode image for LLM: {img_path} — {exc}")
     
-                if image_documents:
-                    llm_response = self.mm_llm.complete(
-                        prompt=filled_prompt,
-                        image_documents=image_documents,
-                    )
+                response = self.nvidia_client.chat.completions.create(
+                    model=config.NVIDIA_LLM_MODEL,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": content_args
+                        }
+                    ],
+                    temperature=temperature,
+                    max_tokens=max_new_tokens,
+                )
+                llm_response = response.choices[0].message.content
+            else:
+                # Build ImageBlock list — the correct type for OpenAIMultiModal.complete().
+                if valid_image_nodes:
+        
+                    image_documents = []
+                    for n in valid_image_nodes:
+                        img_path = n.node.metadata.get("image_path")
+                        try:
+                            b64_str, mime_type = self._encode_image(img_path)
+                            data_uri = f"data:{mime_type};base64,{b64_str}"
+                            image_documents.append(
+                                ImageBlock(url=data_uri, image_mimetype=mime_type)
+                            )
+                        except Exception as exc:
+                            print(f"[query] Could not encode image for LLM: {img_path} — {exc}")
+        
+                    if image_documents:
+                        llm_response = self.mm_llm.complete(
+                            prompt=filled_prompt,
+                            image_documents=image_documents,
+                        )
+                    else:
+                        llm_response = self.mm_llm.complete(prompt=filled_prompt, image_documents=[])
                 else:
                     llm_response = self.mm_llm.complete(prompt=filled_prompt, image_documents=[])
-            else:
-                llm_response = self.mm_llm.complete(prompt=filled_prompt, image_documents=[])
 
         images = self._collect_images(valid_image_nodes)
         return QueryResult(answer=str(llm_response), images=images, source_nodes=final_text_nodes)

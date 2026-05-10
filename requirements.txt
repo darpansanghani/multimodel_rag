@@ -1,26 +1,44 @@
 fastapi
 uvicorn
 python-multipart
+
+# LlamaIndex core
 llama-index
 llama-index-llms-openai
+llama-index-llms-openai-like
 llama-index-embeddings-clip
 llama-index-embeddings-huggingface
 llama-index-vector-stores-qdrant
 llama-index-readers-file
+
+# File parsing
 pypdf
 pandas
 openpyxl
 docx2txt
 Pillow
+PyMuPDF
+pdfplumber
+tabulate
+
+# ML / embeddings
 sentence-transformers
 qdrant-client
+
+# UI
 streamlit
 requests
-PyMuPDF 
-pdfplumber 
-Pillow
+
+# Document processing — pin to avoid pyclipper build hell
 docling
-tabulate
-ragas>=0.1
-datasets
-llama-index-llms-openai-like
+
+# Evals — pin datasets+ragas together to a known-compatible pair
+datasets==2.21.0
+ragas==0.1.21
+
+# Observability — Full suite
+arize-phoenix>=4.0.0
+openinference-instrumentation-llama-index>=2.0.0
+openinference-instrumentation-openai>=0.1.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-exporter-otlp-proto-http>=1.20.0

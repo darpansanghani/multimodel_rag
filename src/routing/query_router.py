@@ -55,12 +55,14 @@ class QueryRouter:
         return "rag"
 
     def route_query(self, query: str, temperature: float = 0.7, max_new_tokens: int = 500) -> QueryResult:
+        from observability.tracer import span
         query_type = self.classify_query(query)
         
-        if query_type == "chat":
-            return self._handle_chat_query(query, temperature, max_new_tokens)
-        else:
-            return self._handle_rag_query(query, temperature, max_new_tokens)
+        with span("query_router", {"intent": query_type}):
+            if query_type == "chat":
+                return self._handle_chat_query(query, temperature, max_new_tokens)
+            else:
+                return self._handle_rag_query(query, temperature, max_new_tokens)
             
     def _handle_chat_query(self, query: str, temperature: float = 0.7, max_new_tokens: int = 500) -> QueryResult:
         """Handles standard conversational queries without document retrieval."""

@@ -227,45 +227,50 @@ class ReflectiveRAGAgent:
             context=context_str[:CONTEXT_PREVIEW_LENGTH],
         )
 
-        raw = ""
-        try:
-            if self._client:
-                # NVIDIA / OpenAI-compatible path
-                response = self._client.chat.completions.create(
-                    model=self._model,
-                    messages=[
-                        {"role": "system", "content": _REFLECT_SYSTEM},
-                        {"role": "user",   "content": prompt},
-                    ],
-                    temperature=0.0,   # scoring should be deterministic
-                    max_tokens=150,
-                )
-                raw = response.choices[0].message.content.strip()
-            else:
-                # mm_llm (OpenAI local) path — no system message support here
-                raw = str(
-                    self.engine.mm_llm.complete(
-                        prompt=f"{_REFLECT_SYSTEM}\n\n{prompt}",
-                        image_documents=[],
+        from observability.tracer import span
+        with span("context_grader") as s:
+            raw = ""
+            try:
+                if self._client:
+                    # NVIDIA / OpenAI-compatible path
+                    response = self._client.chat.completions.create(
+                        model=self._model,
+                        messages=[
+                            {"role": "system", "content": _REFLECT_SYSTEM},
+                            {"role": "user",   "content": prompt},
+                        ],
+                        temperature=0.0,   # scoring should be deterministic
+                        max_tokens=150,
                     )
-                ).strip()
+                    raw = response.choices[0].message.content.strip()
+                else:
+                    # mm_llm (OpenAI local) path — no system message support here
+                    raw = str(
+                        self.engine.mm_llm.complete(
+                            prompt=f"{_REFLECT_SYSTEM}\n\n{prompt}",
+                            image_documents=[],
+                        )
+                    ).strip()
+    
+                # models sometimes wrap JSON in ``` fences despite being told not to
+                raw = self._strip_fences(raw)
+                parsed = json.loads(raw)
+                
+                s.set_attribute("score", str(parsed.get("score", 3)))
 
-            # models sometimes wrap JSON in ``` fences despite being told not to
-            raw = self._strip_fences(raw)
-            parsed = json.loads(raw)
 
-            return _Reflection(
-                score=int(parsed.get("score", 3)),
-                reason=str(parsed.get("reason", "")),
-                rewrite=str(parsed.get("rewrite", "")),
-                attempt=attempt,
-                context_chars=len(context_str),
-            )
+                return _Reflection(
+                    score=int(parsed.get("score", 3)),
+                    reason=str(parsed.get("reason", "")),
+                    rewrite=str(parsed.get("rewrite", "")),
+                    attempt=attempt,
+                    context_chars=len(context_str),
+                )
 
-        except json.JSONDecodeError:
-            print(f"[reflect] Could not parse grading response: {raw!r}")
-        except Exception as exc:
-            print(f"[reflect] Grading call failed on attempt {attempt}: {exc}")
+            except json.JSONDecodeError:
+                print(f"[reflect] Could not parse grading response: {raw!r}")
+            except Exception as exc:
+                print(f"[reflect] Grading call failed on attempt {attempt}: {exc}")
 
         # safe fallback — "partially useful, don't retry"
         return _Reflection(

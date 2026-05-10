@@ -21,6 +21,7 @@ This project is a powerful, locally-hosted **Multimodal Retrieval-Augmented Gene
 *   **Dual-Pipeline UI:** A beautiful, responsive Streamlit frontend powered by a robust FastAPI backend.
 *   **Automated RAGAS Evaluation:** An asynchronous background evaluation pipeline that natively scores every RAG query against `faithfulness`, `answer_relevancy` and `correctness` using a dedicated Evaluation LLM, persisting results to an SQLite database.
 *   **Built-in Analytics Dashboard:** A seamlessly integrated Streamlit dashboard to monitor rolling average metrics, track scores over time via dynamic charts, and review individual query performance.
+*   **Observability & Distributed Tracing:** Integrated OpenTelemetry and Arize Phoenix for deep pipeline tracing. Automatically captures LlamaIndex and OpenAI interactions, plus manual spans for query routing intent, LLM grading scores, and reranker node counts.
 
 ---
 
@@ -48,6 +49,11 @@ graph TD
     L --> M[QueryResult: Answer + Relevant Images]
     M --> N((Async RAGAS Evaluation))
     N -.-> O[(SQLite Database)]
+    
+    P[OpenTelemetry Middleware] -.-> Q((Arize Phoenix))
+    L -.-> P
+    F -.-> P
+    G -.-> P
 ```
 
 ---
@@ -59,6 +65,7 @@ graph TD
 - **Backend API**: [FastAPI](https://fastapi.tiangolo.com/) handling batch multiprocessing and retrieval.
 - **Frontend UI**: [Streamlit](https://streamlit.io/) boasting a custom injected pure CSS glassmorphic aesthetic.
 - **Evaluation Engine**: [Ragas](https://docs.ragas.io/) for asynchronous, reference-free metric scoring.
+- **Observability**: [Arize Phoenix](https://phoenix.arize.com/) and OpenTelemetry for distributed tracing of LLM calls and retrieval loops.
 - **RAG Engine**: [LlamaIndex](https://www.llamaindex.ai/) natively composing:
   - **Text Embeddings**: Local HuggingFace inference (`BAAI/bge-small-en-v1.5`)
   - **Vision/Image Embeddings**: Local OpenAI CLIP (`clip-vit-base-patch32`)
@@ -104,8 +111,9 @@ Because of the decoupled architecture, executing the application requires spinni
 Open your terminal *(making sure the virtual environment and environment variables are loaded)* and execute `uvicorn`:
 
 ```bash
-uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+uvicorn main:app --host 127.0.0.1 --port 8000
 ```
+> **Note**: Do not use `--reload` on Windows when Phoenix is enabled, as the multi-process reloader will cause SQLite file-locking conflicts.
 > **Note**: During the very first launch, HuggingFace will securely download the multi-gigabyte text and image vector encoders directly caching them. Depending on your network, this may take a few minutes.
 
 ### 2. Start the Streamlit Frontend
@@ -118,7 +126,11 @@ streamlit run ui.py
 The terminal should output a local network IP block. Open your web browser to:
 [http://localhost:8501](http://localhost:8501)
 
-### 3. Usage Guide
+### 3. Start Phoenix Tracing
+The Phoenix tracing dashboard launches automatically in the background alongside your backend! Once `uvicorn` is running, you can view your real-time traces and LLM pipelines by opening a browser to:
+[http://localhost:6006](http://localhost:6006)
+
+### 4. Usage Guide
 1. Use the **"Navigation"** sidebar to switch between the Chat Assistant and the Eval Dashboard.
 2. In the Chat Assistant view, expand the **"Knowledge Base"** sidebar.
 3. Upload your PDF documents or stand-alone images.

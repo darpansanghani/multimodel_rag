@@ -7,6 +7,10 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+# MUST be called BEFORE LlamaIndex Settings are configured
+from observability.setup import init_phoenix
+_phoenix_provider = init_phoenix()
+
 from config import DATA_DIR
 from src.core.rag_engine import engine, RelevantImage
 
@@ -25,6 +29,9 @@ class ChatResponse(BaseModel):
     images: List[ImagePayload]
 
 app = FastAPI(title="Multimodal RAG Agent", version="1.0.0")
+
+from observability.middleware import TraceMiddleware
+app.add_middleware(TraceMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -126,4 +133,8 @@ def get_recent_evals():
         return JSONResponse(content=logger.fetch_recent(20))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch eval results: {e}")
+
+@app.get("/observability/status")
+def get_observability_status():
+    return {"phoenix_url": "http://localhost:6006", "status": "running"}
 

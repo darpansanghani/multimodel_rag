@@ -35,7 +35,7 @@ def score(query: str, answer: str, context_chunks: list) -> dict:
     try:
 
         base_llm = OpenAILike(
-            model=config.NVIDIA_LLM_MODEL,
+            model=config.NVIDIA_EVAL_LLM_MODEL,
             api_key=config.NVIDIA_API_KEY,
             api_base="https://integrate.api.nvidia.com/v1",
             is_chat_model=True,
