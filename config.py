@@ -25,6 +25,7 @@ NVIDIA_API_KEY = "[ENCRYPTION_KEY]"
 NVIDIA_RERANK_MODEL = "nv-rerank-qa-mistral-4b:1"
 NVIDIA_LLM_MODEL = "meta/llama-3.1-8b-instruct" # Switching to a stable model
 NVIDIA_REFLECTION_MODEL = "meta/llama-3.1-8b-instruct"
+NVIDIA_EVAL_LLM_MODEL = "meta/llama-4-maverick-17b-128e-instruct"
 
 
 # How many nodes to fetch before reranking — cast a wide net first

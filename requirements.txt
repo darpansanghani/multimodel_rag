@@ -21,3 +21,6 @@ pdfplumber
 Pillow
 docling
 tabulate
+ragas>=0.1
+datasets
+llama-index-llms-openai-like

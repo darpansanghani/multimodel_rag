@@ -3,11 +3,11 @@ import shutil
 import uuid
 from typing import List
 from pydantic import BaseModel
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from config.config import DATA_DIR
+from config import DATA_DIR
 from src.core.rag_engine import engine, RelevantImage
 
 class ImagePayload(BaseModel):
@@ -79,13 +79,28 @@ async def upload_and_ingest(files: List[UploadFile] = File(...)):
 
 from src.routing.query_router import query_router
 
+def run_eval_and_log(query: str, answer: str, ctx_texts: list):
+    try:
+        from src.eval import evaluator, logger
+        res = evaluator.score(query, answer, ctx_texts)
+        res["query"] = query
+        res["answer"] = answer
+        res["context_chunks"] = ctx_texts
+        logger.save_result(res)
+    except Exception as e:
+        print(f"[eval] Background evaluation failed: {e}")
+
 @app.post("/chat", response_model=ChatResponse)
-def chat_with_bot(query: str, temperature: float = 0.7, max_new_tokens: int = 500):
+def chat_with_bot(query: str, background_tasks: BackgroundTasks, temperature: float = 0.7, max_new_tokens: int = 500):
     if not query or query.strip() == "":
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
     try:
         result = query_router.route_query(query, temperature=temperature, max_new_tokens=max_new_tokens)
+
+        if query_router.classify_query(query) == "rag" and hasattr(result, "source_nodes") and result.source_nodes:
+            ctx_texts = [n.node.get_content() for n in result.source_nodes]
+            background_tasks.add_task(run_eval_and_log, query, result.answer, ctx_texts)
 
         images = [
             ImagePayload(
@@ -103,3 +118,12 @@ def chat_with_bot(query: str, temperature: float = 0.7, max_new_tokens: int = 50
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
+
+@app.get("/eval/recent")
+def get_recent_evals():
+    try:
+        from src.eval import logger
+        return JSONResponse(content=logger.fetch_recent(20))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch eval results: {e}")
+

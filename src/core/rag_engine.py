@@ -30,7 +30,7 @@ from llama_index.core.llms import ImageBlock
 
 import hashlib
 from PIL import Image as PilImage
-import config.config as config
+import config as config
 from src.core.pdf_parser import DoclingPDFParser
 
 # Image extensions recognised during ingestion
@@ -64,6 +64,7 @@ class QueryResult:
     """Everything the API needs to build its response."""
     answer: str
     images: List[RelevantImage] = field(default_factory=list)
+    source_nodes: list = field(default_factory=list)
 
 
 # Build a LlamaIndex-compatible QA template that injects the system prompt
@@ -277,9 +278,10 @@ class MultiModalEngine:
             # If this ingestion had no images, the image collection never gets created,
             # which causes a crash on next server restart. Create it explicitly here.
             if not self._qdrant.collection_exists(config.QDRANT_IMAGE_COLLECTION):
+                from qdrant_client.models import VectorParams, Distance
                 self._qdrant.create_collection(
                     collection_name=config.QDRANT_IMAGE_COLLECTION,
-                    vectors_config=self.image_store._collection_config(),
+                    vectors_config=VectorParams(size=512, distance=Distance.COSINE),
                 )
                 print("[index] Created empty image collection as placeholder.")
         else:
@@ -588,7 +590,7 @@ class MultiModalEngine:
                 llm_response = self.mm_llm.complete(prompt=filled_prompt, image_documents=[])
 
         images = self._collect_images(valid_image_nodes)
-        return QueryResult(answer=str(llm_response), images=images)
+        return QueryResult(answer=str(llm_response), images=images, source_nodes=final_text_nodes)
 
     def ask_question(self, prompt: str) -> QueryResult:
         """Legacy entry point, forwards to the new split methods."""

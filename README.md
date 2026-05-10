@@ -4,6 +4,7 @@
 ![LlamaIndex](https://img.shields.io/badge/LlamaIndex-0.10+-lightgrey.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-red.svg)
+![Ragas](https://img.shields.io/badge/Ragas-0.1+-orange.svg)
 
 This project is a powerful, locally-hosted **Multimodal Retrieval-Augmented Generation (RAG) with Self Reflection web application**. It is designed to ingest complex file types (especially multi-column PDFs with embedded charts/diagrams, and independent images) and perform intelligent search and visual understanding. It achieves this by coupling local embedding models with high-performance cloud LLMs (like NVIDIA NIM and OpenAI endpoints).
 
@@ -18,6 +19,8 @@ This project is a powerful, locally-hosted **Multimodal Retrieval-Augmented Gene
 *   **NVIDIA Reranking & Page-Aware Co-retrieval:** Initially retrieves a wide net of text nodes, reranks them using `nv-rerank-qa-mistral-4b`, and identifies the highest-scoring source pages. It then forcefully co-retrieves any diagrams existing on those specific pages to provide rich visual context to the LLM.
 *   **Content-Based Image Deduplication:** Utilizes `PIL` thumbnailing and MD5 pixel-hashing to strip duplicate visuals (e.g., repeating corporate headers) before they hit the LLM context window.
 *   **Dual-Pipeline UI:** A beautiful, responsive Streamlit frontend powered by a robust FastAPI backend.
+*   **Automated RAGAS Evaluation:** An asynchronous background evaluation pipeline that natively scores every RAG query against `faithfulness`, `answer_relevancy`, `correctness`, and `hallucination` using a dedicated Evaluation LLM, persisting results to an SQLite database.
+*   **Built-in Analytics Dashboard:** A seamlessly integrated Streamlit dashboard to monitor rolling average metrics, track scores over time via dynamic charts, and review individual query performance.
 
 ---
 
@@ -43,6 +46,8 @@ graph TD
     I -->|Score >= Threshold| K[Multimodal Context Construction]
     K --> L[NVIDIA Cloud LLM / Local API LLM]
     L --> M[QueryResult: Answer + Relevant Images]
+    M --> N((Async RAGAS Evaluation))
+    N -.-> O[(SQLite Database)]
 ```
 
 ---
@@ -50,8 +55,10 @@ graph TD
 ## 🛠️ Technical Stack
 
 - **Vector Database**: locally-persistent [Qdrant](https://qdrant.tech/) Collections
+- **Evaluation Database**: Local SQLite (`eval_results.db`)
 - **Backend API**: [FastAPI](https://fastapi.tiangolo.com/) handling batch multiprocessing and retrieval.
 - **Frontend UI**: [Streamlit](https://streamlit.io/) boasting a custom injected pure CSS glassmorphic aesthetic.
+- **Evaluation Engine**: [Ragas](https://docs.ragas.io/) for asynchronous, reference-free metric scoring.
 - **RAG Engine**: [LlamaIndex](https://www.llamaindex.ai/) natively composing:
   - **Text Embeddings**: Local HuggingFace inference (`BAAI/bge-small-en-v1.5`)
   - **Vision/Image Embeddings**: Local OpenAI CLIP (`clip-vit-base-patch32`)
@@ -112,10 +119,12 @@ The terminal should output a local network IP block. Open your web browser to:
 [http://localhost:8501](http://localhost:8501)
 
 ### 3. Usage Guide
-1. Expand the **"Knowledge Base"** sidebar.
-2. Upload your PDF documents or stand-alone images.
-3. Click **"Ingest Files"**. The system will chunk text, parse complex layouts, caption images, and build the Qdrant index.
-4. Once completed, use the chat interface to ask complex, document-grounded questions. Ask it to describe specific charts or summarize multi-page concepts!
+1. Use the **"Navigation"** sidebar to switch between the Chat Assistant and the Eval Dashboard.
+2. In the Chat Assistant view, expand the **"Knowledge Base"** sidebar.
+3. Upload your PDF documents or stand-alone images.
+4. Click **"Ingest Files"**. The system will chunk text, parse complex layouts, caption images, and build the Qdrant index.
+5. Ask complex, document-grounded questions. The system will answer, and then asynchronously grade its own performance in the background without adding any latency!
+6. Navigate to the **"Eval Dashboard"** to see your real-time performance metrics, line charts, and colored dataframe.
 
 ---
 

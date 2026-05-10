@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import base64
 from io import BytesIO
+import pandas as pd
 
 # --- Configuration ---
 FASTAPI_URL = "http://localhost:8000"
@@ -220,8 +221,12 @@ def render_message(message: dict):
             render_images(message["images"])
 
 
-# --- Sidebar: File Ingestion ---
+# --- Sidebar ---
 with st.sidebar:
+    st.header("🧭 Navigation")
+    page = st.radio("Go to", ["💬 Chat Assistant", "📊 Eval Dashboard"], label_visibility="collapsed")
+    st.divider()
+
     st.header("⚙️ Inference Settings")
     temperature = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
     max_new_tokens = st.slider("Max New Tokens", min_value=100, max_value=4096, value=500, step=100)
@@ -260,51 +265,108 @@ with st.sidebar:
                     st.error("Cannot connect to the FastAPI backend. Is it running on port 8000?")
 
 
-# --- Main Chat Area ---
-st.title("Multimodal AI Assistant")
+# --- Main Content Area ---
+if page == "💬 Chat Assistant":
+    st.title("Multimodal AI Assistant")
 
-# Replay full conversation history on every rerun
-for message in st.session_state.messages:
-    render_message(message)
+    # Replay full conversation history on every rerun
+    for message in st.session_state.messages:
+        render_message(message)
 
-# Handle new user input
-if prompt := st.chat_input("Ask something about your documents..."):
+    # Handle new user input
+    if prompt := st.chat_input("Ask something about your documents..."):
 
-    user_message = {"role": "user", "content": prompt, "images": []}
-    st.session_state.messages.append(user_message)
-    render_message(user_message)
+        user_message = {"role": "user", "content": prompt, "images": []}
+        st.session_state.messages.append(user_message)
+        render_message(user_message)
 
-    with st.chat_message("assistant"):
-        placeholder = st.empty()
-        placeholder.markdown("*(Thinking...)*")
+        with st.chat_message("assistant"):
+            placeholder = st.empty()
+            placeholder.markdown("*(Thinking...)*")
 
-        try:
-            res = requests.post(f"{FASTAPI_URL}/chat", params={
-                "query": prompt,
-                "temperature": temperature,
-                "max_new_tokens": max_new_tokens
-            })
-
-            if res.status_code == 200:
-                data = res.json()
-                answer = data.get("response", "No response content.")
-                images = data.get("images", [])
-
-                placeholder.markdown(answer)
-
-                # Render images right inside the same assistant bubble
-                if images:
-                    render_images(images)
-
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": answer,
-                    "images": images,
+            try:
+                res = requests.post(f"{FASTAPI_URL}/chat", params={
+                    "query": prompt,
+                    "temperature": temperature,
+                    "max_new_tokens": max_new_tokens
                 })
-            else:
-                placeholder.empty()
-                st.error(f"Error {res.status_code}: {res.text}")
 
-        except requests.exceptions.ConnectionError:
-            placeholder.empty()
-            st.error("Failed to connect to backend server.")
+                if res.status_code == 200:
+                    data = res.json()
+                    answer = data.get("response", "No response content.")
+                    images = data.get("images", [])
+
+                    placeholder.markdown(answer)
+
+                    # Render images right inside the same assistant bubble
+                    if images:
+                        render_images(images)
+
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": answer,
+                        "images": images,
+                    })
+                else:
+                    placeholder.empty()
+                    st.error(f"Error {res.status_code}: {res.text}")
+
+            except requests.exceptions.ConnectionError:
+                placeholder.empty()
+                st.error("Failed to connect to backend server.")
+
+else:
+    st.title("RAG Evaluation Dashboard")
+    
+    col1, col2 = st.columns([1, 10])
+    with col1:
+        if st.button("Refresh", type="primary"):
+            st.rerun()
+            
+    try:
+        res = requests.get(f"{FASTAPI_URL}/eval/recent")
+        if res.status_code == 200:
+            results = res.json()
+            if not results:
+                st.info("No evaluation results found yet. Ask some questions in the Chat Assistant first!")
+            else:
+                df = pd.DataFrame(results)
+                
+                # Calculate averages
+                avg_f = df['faithfulness'].mean()
+                avg_ar = df['answer_relevancy'].mean()
+                avg_cp = df['correctness'].mean()
+                # avg_cr = df['context_recall'].mean()
+                
+                cols = st.columns(3)
+                cols[0].metric("Faithfulness (Avg)", f"{avg_f:.3f}" if pd.notnull(avg_f) else "N/A")
+                cols[1].metric("Answer Relevancy (Avg)", f"{avg_ar:.3f}" if pd.notnull(avg_ar) else "N/A")
+                cols[2].metric("Correctness (Avg)", f"{avg_cp:.3f}" if pd.notnull(avg_cp) else "N/A")
+                # cols[3].metric("Context Recall (Avg)", f"{avg_cr:.3f}" if pd.notnull(avg_cr) else "N/A")
+                
+                st.subheader("Metrics over Time")
+                df_chart = df.sort_values('timestamp').reset_index(drop=True)
+                st.line_chart(df_chart[['faithfulness', 'answer_relevancy', 'correctness']])
+                
+                st.subheader("Recent Queries")
+                
+                def color_score(val):
+                    if pd.isnull(val):
+                        return ""
+                    if val >= 0.7:
+                        color = "green"
+                    elif val >= 0.4:
+                        color = "orange"
+                    else:
+                        color = "red"
+                    return f"color: {color}"
+                    
+                styled_df = df[['timestamp', 'query', 'answer', 'faithfulness', 'answer_relevancy', 'correctness']].style.map(
+                    color_score, subset=['faithfulness', 'answer_relevancy', 'correctness']
+                )
+                
+                st.dataframe(styled_df, use_container_width=True)
+        else:
+            st.error(f"Error fetching evaluations {res.status_code}: {res.text}")
+    except requests.exceptions.ConnectionError:
+        st.error("Cannot connect to the FastAPI backend. Is it running on port 8000?")

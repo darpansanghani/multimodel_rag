@@ -1,6 +1,6 @@
 import re
 from typing import Literal
-from config import config
+import config as config
 from src.core.rag_engine import engine, QueryResult
 
 CONVERSATIONAL_PROMPT = """

@@ -22,7 +22,7 @@ from typing import Optional
 
 from openai import OpenAI
 
-import config.config as config
+import config as config
 from src.core.rag_engine import MultiModalEngine, QueryResult
 
 
