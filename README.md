@@ -19,7 +19,7 @@ This project is a powerful, locally-hosted **Multimodal Retrieval-Augmented Gene
 *   **NVIDIA Reranking & Page-Aware Co-retrieval:** Initially retrieves a wide net of text nodes, reranks them using `nv-rerank-qa-mistral-4b`, and identifies the highest-scoring source pages. It then forcefully co-retrieves any diagrams existing on those specific pages to provide rich visual context to the LLM.
 *   **Content-Based Image Deduplication:** Utilizes `PIL` thumbnailing and MD5 pixel-hashing to strip duplicate visuals (e.g., repeating corporate headers) before they hit the LLM context window.
 *   **Dual-Pipeline UI:** A beautiful, responsive Streamlit frontend powered by a robust FastAPI backend.
-*   **Automated RAGAS Evaluation:** An asynchronous background evaluation pipeline that natively scores every RAG query against `faithfulness`, `answer_relevancy`, `correctness`, and `hallucination` using a dedicated Evaluation LLM, persisting results to an SQLite database.
+*   **Automated RAGAS Evaluation:** An asynchronous background evaluation pipeline that natively scores every RAG query against `faithfulness`, `answer_relevancy` and `correctness` using a dedicated Evaluation LLM, persisting results to an SQLite database.
 *   **Built-in Analytics Dashboard:** A seamlessly integrated Streamlit dashboard to monitor rolling average metrics, track scores over time via dynamic charts, and review individual query performance.
 
 ---
